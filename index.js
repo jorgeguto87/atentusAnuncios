@@ -73,6 +73,27 @@ client.on('qr', qr => {
     qrcode.generate(qr, {small: true});
 });
 
+// A partir daqui é a fase "cega" que ficava sem log nenhum — entre
+// escanear o QR e o 'ready' disparar, existe uma sincronização inteira
+// do WhatsApp Web acontecendo por trás. Esses eventos mostram em que
+// ponto exatamente ela está (ou se trava/falha) em vez de só "sumir".
+
+client.on('authenticated', () => {
+    console.log('🔐 Autenticado! Aguardando sincronização completa...');
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('❌ Falha na autenticação:', msg);
+});
+
+client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ Carregando: ${percent}% - ${message}`);
+});
+
+client.on('disconnected', (reason) => {
+    console.log('🔌 Desconectado:', reason);
+});
+
 client.initialize();
 
 client.on('ready', async () => {
