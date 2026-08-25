@@ -1,11 +1,35 @@
 const qrcode = require('qrcode-terminal');
 const { Client, LocalAuth, Buttons, List, MessageMedia, MessageTypes } = require('whatsapp-web.js');
-const client = new Client ({
-    authStrategy: new LocalAuth()
-});
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
+
+// Argumentos do Puppeteer otimizados pra VPS com pouca RAM (Oracle Free
+// Tier, por exemplo) — --disable-dev-shm-usage evita o Chrome tentar usar
+// /dev/shm (geralmente só 64MB por padrão, trava sem esse ajuste), e
+// --single-process/--no-zygote são necessários pra caber na memória
+// disponível (sem eles, o Chrome abre processos demais e é derrubado por
+// falta de RAM bem no meio do pareamento do QR Code).
+const PUPPETEER_ARGS = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--single-process',
+    '--no-zygote',
+    '--disable-accelerated-2d-canvas',
+    '--disable-extensions',
+];
+
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    authTimeoutMs: 120000,               // mais tempo pro login em CPU/conexão mais lenta
+    puppeteer: {
+        headless: true,
+        args: PUPPETEER_ARGS,
+        timeout: 120000,
+    },
+});
 
 const grupos = [
     '120363039621149962@g.us', 
@@ -24,19 +48,25 @@ const horarios = [
 // Caminho para o arquivo que armazena os grupos que enviaram mensagem
 const arquivoGrupos = path.resolve(__dirname, 'data.txt');
 
-// Função para ler grupos já salvos (retorna array)
+// Função para ler grupos já salvos (retorna array só com os IDs — funciona
+// tanto com linha antiga, só ID, quanto com a nova, ID + nome)
 function lerGrupos() {
     if (!fs.existsSync(arquivoGrupos)) {
         return [];
     }
     const dados = fs.readFileSync(arquivoGrupos, 'utf-8');
-    return dados.split('\n').filter(linha => linha.trim() !== '');
+    return dados
+        .split('\n')
+        .filter(linha => linha.trim() !== '')
+        .map(linha => linha.split(' | ')[0].trim());
 }
 
-// Função para salvar um novo grupo no arquivo
-function salvarGrupo(idGrupo) {
-    fs.appendFileSync(arquivoGrupos, idGrupo + '\n', 'utf-8');
-    console.log(`Grupo salvo: ${idGrupo}`);
+// Função para salvar um novo grupo no arquivo — agora salva o nome junto,
+// separado por " | ", pra dar pra identificar qual é qual depois
+function salvarGrupo(idGrupo, nomeGrupo) {
+    const linha = `${idGrupo} | ${nomeGrupo}\n`;
+    fs.appendFileSync(arquivoGrupos, linha, 'utf-8');
+    console.log(`Grupo salvo: ${nomeGrupo} (${idGrupo})`);
 }
 
 client.on('qr', qr => {
@@ -142,7 +172,8 @@ function scheduleAdvertisements() {
     });
 }
 
-// Função que escuta mensagens e salva grupos únicos em data.txt
+// Função que escuta mensagens e salva grupos únicos em data.txt — agora
+// busca o nome do grupo antes de salvar, pra facilitar identificar depois
 function listenGroups() {
     client.on('message', async msg => {
         const from = msg.from;
@@ -152,7 +183,14 @@ function listenGroups() {
             const gruposSalvos = lerGrupos();
 
             if (!gruposSalvos.includes(from)) {
-                salvarGrupo(from);
+                try {
+                    const chat = await msg.getChat();
+                    const nomeGrupo = chat.name || 'Nome não disponível';
+                    salvarGrupo(from, nomeGrupo);
+                } catch (error) {
+                    console.error(`Erro ao buscar nome do grupo ${from}:`, error);
+                    salvarGrupo(from, 'Nome não disponível');
+                }
             }
         }
     });
