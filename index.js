@@ -128,7 +128,7 @@ function scheduleAdvertisements() {
             }
     
             const anuncio = MessageMedia.fromFilePath(caminhoImagem);
-            const mensagem = '🚀 TURBINE SUAS VENDAS COM A ATENTUS CLOUD! 💥\n\nVocê é dono de restaurante, loja ou delivery e quer mais praticidade e vendas? Conheça a plataforma da Atentus Cloud e transforme seu atendimento! 👇\n\n✅ Anúncios programados\n✅ Atendimento automático\n✅ Catálogo e pedidos organizados\n✅ Status de pedidos em tempo real\n✅ Conexão com impressora fiscal\n✅ Muito mais tecnologia pro seu negócio crescer!\n\n📲 Veja como funciona na prática e comece a vender mais ainda hoje\n👇🏼 Clique abaixo e fale direto no WhatsApp\nhttps://wa.me/5521974459696?text=Ol%C3%A1%2C%20vi%20seu%20an%C3%BAncio%20no%20grupo%20e%20gostaria%20de%20saber%20mais\n\n📞 Ou salve o número: (21) 97445-9696\n\n💻 Site oficial: https://atentus.cloud';
+            const mensagem = '🍽️ CHEGA DE PAGAR COMISSÃO PRO APP DE ENTREGA! 🚀\n\nVocê tem restaurante, hamburgueria, pizzaria ou delivery e quer vender mais sem perder dinheiro com comissão? Conheça o Eu Cardápio! 👇\n\n✅ Cardápio digital com a cara do seu negócio\n✅ Pedido automático pelo WhatsApp\n✅ Pagamento direto na SUA conta (Pix, cartão)\n✅ QR Code pra pedido na mesa\n✅ Cupom e cashback pra cliente sempre voltar\n✅ Painel completo de gestão, tudo numa tela só\n\n💰 Assinatura fixa — sem comissão nenhuma por pedido!\n\n📲 Teste grátis por 7 dias, sem cartão de crédito\n👇🏼 Veja como funciona:\nhttps://portal.eucardapio.com.br';
     
             for (const grupo of grupos) {
                 try {
