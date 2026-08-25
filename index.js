@@ -175,24 +175,48 @@ function scheduleAdvertisements() {
 // Função que escuta mensagens e salva grupos únicos em data.txt — agora
 // busca o nome do grupo antes de salvar, pra facilitar identificar depois
 function listenGroups() {
-    client.on('message', async msg => {
-        const from = msg.from;
+    async function processarGrupo(msg) {
+        // Cobre tanto mensagem RECEBIDA de um grupo quanto ENVIADA pelo
+        // próprio bot pra um grupo (msg.to) — importante porque esse bot
+        // manda anúncio o tempo todo, mas quase não recebe mensagem de
+        // volta, então só escutar 'message' raramente capturava o grupo
+        const isFromGroup = msg.from.endsWith('@g.us');
+        const isToGroup = msg.to && msg.to.endsWith('@g.us');
+        if (!isFromGroup && !isToGroup) return;
 
-        // Verifica se a mensagem é de grupo
-        if (from.endsWith('@g.us')) {
-            const gruposSalvos = lerGrupos();
+        const grupoId = isFromGroup ? msg.from : msg.to;
+        const gruposSalvos = lerGrupos();
+        if (gruposSalvos.includes(grupoId)) return;
 
-            if (!gruposSalvos.includes(from)) {
-                try {
-                    const chat = await msg.getChat();
-                    const nomeGrupo = chat.name || 'Nome não disponível';
-                    salvarGrupo(from, nomeGrupo);
-                } catch (error) {
-                    console.error(`Erro ao buscar nome do grupo ${from}:`, error);
-                    salvarGrupo(from, 'Nome não disponível');
-                }
+        try {
+            let chat = await msg.getChat();
+            let nomeGrupo = chat.name;
+
+            // Logo após conectar, às vezes o WhatsApp Web ainda não
+            // carregou os detalhes completos do grupo, e o nome vem
+            // vazio nesse instante — tenta buscar de novo, direto pelo
+            // ID, como reforço, antes de desistir e usar o texto padrão
+            if (!nomeGrupo) {
+                const chatDireto = await client.getChatById(grupoId);
+                nomeGrupo = chatDireto?.name;
             }
+
+            salvarGrupo(grupoId, nomeGrupo || 'Nome não disponível');
+        } catch (error) {
+            console.error(`Erro ao buscar nome do grupo ${grupoId}:`, error);
+            salvarGrupo(grupoId, 'Nome não disponível');
         }
+    }
+
+    // Escuta mensagem recebida...
+    client.on('message', async msg => {
+        await processarGrupo(msg);
+    });
+
+    // ...e também mensagem enviada pelo próprio bot (essencial pro caso
+    // de um bot que só manda anúncio, quase não recebe resposta)
+    client.on('message_create', async msg => {
+        await processarGrupo(msg);
     });
 }
 
