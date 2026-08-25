@@ -172,6 +172,14 @@ function scheduleAdvertisements() {
     });
 }
 
+// Guarda em memória os grupos já vistos NESSA execução — checado e
+// marcado de forma síncrona, antes de qualquer busca assíncrona (nome,
+// escrita em arquivo). Isso fecha a brecha que fazia 'message' e
+// 'message_create' salvarem o mesmo grupo duas vezes quase ao mesmo
+// tempo (reler o arquivo sozinho não é rápido o suficiente pra evitar
+// isso — os dois liam "ainda não existe" antes de qualquer um escrever).
+const gruposEmMemoria = new Set(lerGrupos());
+
 // Função que escuta mensagens e salva grupos únicos em data.txt — agora
 // busca o nome do grupo antes de salvar, pra facilitar identificar depois
 function listenGroups() {
@@ -185,25 +193,19 @@ function listenGroups() {
         if (!isFromGroup && !isToGroup) return;
 
         const grupoId = isFromGroup ? msg.from : msg.to;
-        const gruposSalvos = lerGrupos();
-        if (gruposSalvos.includes(grupoId)) return;
+
+        // Checa E marca como visto na mesma linha, de forma síncrona —
+        // se 'message' e 'message_create' chegarem quase juntos pro
+        // mesmo grupo, só o primeiro a passar aqui segue adiante
+        if (gruposEmMemoria.has(grupoId)) return;
+        gruposEmMemoria.add(grupoId);
 
         try {
-            let chat = await msg.getChat();
-            let nomeGrupo = chat.name;
-
-            // Logo após conectar, às vezes o WhatsApp Web ainda não
-            // carregou os detalhes completos do grupo, e o nome vem
-            // vazio nesse instante — tenta buscar de novo, direto pelo
-            // ID, como reforço, antes de desistir e usar o texto padrão
-            if (!nomeGrupo) {
-                const chatDireto = await client.getChatById(grupoId);
-                nomeGrupo = chatDireto?.name;
-            }
-
-            salvarGrupo(grupoId, nomeGrupo || 'Nome não disponível');
+            const chat = await msg.getChat();
+            const nomeGrupo = chat.name || 'Nome não disponível';
+            salvarGrupo(grupoId, nomeGrupo);
         } catch (error) {
-            console.error(`Erro ao buscar nome do grupo ${grupoId}:`, error);
+            console.error(`Erro ao buscar nome do grupo ${grupoId}:`, error.message);
             salvarGrupo(grupoId, 'Nome não disponível');
         }
     }
